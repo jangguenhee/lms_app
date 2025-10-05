@@ -4,20 +4,20 @@ import { SignupForm } from '@/presentation/web/components/features/auth/signup-f
 
 export default function SignupPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-[400px]">
+        <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl font-bold">회원가입</CardTitle>
-          <CardDescription>계정을 만들어 VMC LMS를 시작하세요</CardDescription>
+          <CardDescription>이메일과 비밀번호를 입력하면 계정이 생성됩니다.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <SignupForm />
-          <div className="mt-4 text-center text-sm">
+          <p className="text-center text-sm text-muted-foreground">
             이미 계정이 있으신가요?{' '}
-            <Link href="/signin" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/signin" className="font-medium text-primary hover:underline">
               로그인
             </Link>
-          </div>
+          </p>
         </CardContent>
       </Card>
     </div>
