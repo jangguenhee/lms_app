@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
 import { CourseForm } from '@/components/courses/CourseForm';
 import { PublishButton } from '@/components/courses/PublishButton';
+import { CourseStatusBadge } from '@/components/courses/CourseStatusBadge';
 import { HttpError, requireCourseOwnership } from '@/lib/auth/guards';
 import type { CourseRow } from '@/types/db';
 
@@ -37,7 +37,7 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
           <h1 className="text-3xl font-semibold">코스 편집</h1>
           <p className="text-sm text-muted-foreground">코스 정보를 업데이트하고 준비가 되면 게시하세요.</p>
         </div>
-        <StatusBadge status={course.status} />
+        <CourseStatusBadge status={course.status} />
       </header>
 
       <CourseForm mode="edit" courseId={course.id} initial={course} />
@@ -48,14 +48,3 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
     </div>
   );
 }
-
-function StatusBadge({ status }: { status: CourseRow['status'] }) {
-  const { label, className } = statusBadgeMap[status];
-  return <Badge className={className}>{label}</Badge>;
-}
-
-const statusBadgeMap: Record<CourseRow['status'], { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-slate-200 text-slate-900 hover:bg-slate-300' },
-  published: { label: 'Published', className: 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200' },
-  archived: { label: 'Archived', className: 'bg-amber-100 text-amber-900 hover:bg-amber-200' },
-};

@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --import tsx --no-warnings __tests__/**/*.ts",
+    "test:ci": "NODE_OPTIONS='--experimental-specifier-resolution=node' node --test --import tsx __tests__/**/*.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
@@ -56,6 +59,7 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss": "^4.1.13",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

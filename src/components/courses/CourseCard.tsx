@@ -1,23 +1,14 @@
 import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import type { CourseRow } from '@/types/db';
-import { cn } from '@/lib/utils';
+import { CourseStatusBadge } from './CourseStatusBadge';
 
 type CourseCardProps = {
   course: CourseRow;
   href?: string;
 };
 
-const statusStyles: Record<CourseRow['status'], string> = {
-  draft: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
-  published: 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200',
-  archived: 'bg-amber-100 text-amber-900 hover:bg-amber-200',
-};
-
 export function CourseCard({ course, href }: CourseCardProps) {
-  const statusLabel = statusLabelMap[course.status];
-
   return (
     <Card className="border-muted/40">
       <CardHeader className="space-y-3">
@@ -25,7 +16,7 @@ export function CourseCard({ course, href }: CourseCardProps) {
           <CardTitle className="line-clamp-1 text-lg font-semibold">
             {course.title || '제목 없는 코스'}
           </CardTitle>
-          <Badge className={cn('text-xs capitalize', statusStyles[course.status])}>{statusLabel}</Badge>
+          <CourseStatusBadge status={course.status} />
         </div>
         {course.thumbnail_url ? (
           <p className="text-sm text-muted-foreground">썸네일이 설정되어 있습니다.</p>
@@ -49,9 +40,3 @@ export function CourseCard({ course, href }: CourseCardProps) {
     </Card>
   );
 }
-
-const statusLabelMap: Record<CourseRow['status'], string> = {
-  draft: 'Draft',
-  published: 'Published',
-  archived: 'Archived',
-};

@@ -6,7 +6,19 @@ const titleSchema = z
   .min(1, '제목을 입력해주세요.')
   .max(200, '제목은 200자 이하여야 합니다.');
 
-const descriptionSchema = z
+const draftDescriptionSchema = z
+  .string()
+  .optional()
+  .transform((value) => (value ?? '').trim())
+  .refine((value) => value.length === 0 || value.length >= 10, {
+    message: '설명은 10자 이상이어야 합니다.',
+  })
+  .refine((value) => value.length === 0 || value.length <= 5000, {
+    message: '설명은 5000자 이하여야 합니다.',
+  })
+  .transform((value) => (value.length === 0 ? undefined : value));
+
+const publishDescriptionSchema = z
   .string({ required_error: '설명을 입력해주세요.' })
   .trim()
   .min(10, '설명은 10자 이상이어야 합니다.')
@@ -23,18 +35,12 @@ const thumbnailOptionalSchema = z
 
 export const courseDraftSchema = z.object({
   title: titleSchema,
-  description: descriptionSchema,
+  description: draftDescriptionSchema,
   thumbnailUrl: thumbnailOptionalSchema,
 });
 
-export const coursePublishSchema = courseDraftSchema.superRefine((data, ctx) => {
-  if (!data.description) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['description'],
-      message: '게시하려면 설명을 입력해야 합니다.',
-    });
-  }
+export const coursePublishSchema = courseDraftSchema.extend({
+  description: publishDescriptionSchema,
 });
 
 export type CourseDraftInput = z.infer<typeof courseDraftSchema>;

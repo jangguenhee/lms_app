@@ -1,11 +1,14 @@
-import { createSupabaseServerClient, type ServerClient } from '@/lib/supabase/server';
-import type { Database } from '@/lib/supabase/types';
-import type { CourseRow, ProfileRow } from '@/types/db';
+import { createSupabaseServerClient, type ServerClient } from '../supabase/server';
+import type { Database } from '../supabase/types';
+import type { CourseRow, ProfileRow } from '../../types/db';
 
 export class HttpError extends Error {
-  constructor(public readonly code: number, message: string) {
+  public readonly code: number;
+
+  constructor(code: number, message: string) {
     super(message);
     this.name = 'HttpError';
+    this.code = code;
   }
 }
 

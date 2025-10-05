@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath } from 'next/cache.js';
 import { nanoid } from 'nanoid';
 import type { PostgrestError } from '@supabase/supabase-js';
 import {
@@ -8,11 +8,11 @@ import {
   actionMessageFromError,
   actionMessageFromSuccess,
   type ActionMessage,
-} from '@/lib/utils/toast';
-import { courseDraftSchema, coursePublishSchema } from '@/lib/validations/course';
-import { requireCourseOwnership, requireInstructor, HttpError } from '@/lib/auth/guards';
-import type { CourseDraftInput } from '@/lib/validations/course';
-import type { CourseInsert, CourseUpdate } from '@/types/db';
+} from '../../../../../lib/utils/toast';
+import { courseDraftSchema, coursePublishSchema } from '../../../../../lib/validations/course';
+import { requireCourseOwnership, requireInstructor, HttpError } from '../../../../../lib/auth/guards';
+import type { CourseDraftInput } from '../../../../../lib/validations/course';
+import type { CourseInsert, CourseUpdate } from '../../../../../types/db';
 
 type FieldErrors = Partial<Record<'title' | 'description' | 'thumbnailUrl', string>>;
 
@@ -61,7 +61,7 @@ function messageFromPostgrestError(error: PostgrestError): ActionMessage {
   return createActionMessage('error', '데이터베이스 오류', '요청 처리 중 문제가 발생했습니다.');
 }
 
-type ActionDependencies = {
+export type ActionDependencies = {
   requireInstructor: typeof requireInstructor;
   requireCourseOwnership: typeof requireCourseOwnership;
   revalidatePath: typeof revalidatePath;
@@ -85,7 +85,7 @@ export async function publishCourse(courseId: string): Promise<CourseActionResul
   return publishCourseInternal(defaultDeps, courseId);
 }
 
-async function createCourseInternal(
+export async function createCourseInternal(
   deps: ActionDependencies,
   input: CourseDraftInput,
 ): Promise<CourseActionResult> {
@@ -106,7 +106,7 @@ async function createCourseInternal(
       id: nanoid(),
       instructor_id: user.id,
       title: parsed.data.title,
-      description: parsed.data.description,
+      description: parsed.data.description ?? null,
       thumbnail_url: parsed.data.thumbnailUrl ?? null,
       status: 'draft' as const,
     };
@@ -157,7 +157,7 @@ async function createCourseInternal(
   }
 }
 
-async function updateCourseInternal(
+export async function updateCourseInternal(
   deps: ActionDependencies,
   courseId: string,
   input: CourseDraftInput,
@@ -177,7 +177,7 @@ async function updateCourseInternal(
 
     const updates: CourseUpdate = {
       title: parsed.data.title,
-      description: parsed.data.description,
+      description: parsed.data.description ?? null,
       thumbnail_url: parsed.data.thumbnailUrl ?? null,
     };
 
@@ -210,7 +210,7 @@ async function updateCourseInternal(
   }
 }
 
-async function publishCourseInternal(
+export async function publishCourseInternal(
   deps: ActionDependencies,
   courseId: string,
 ): Promise<CourseActionResult> {
@@ -268,10 +268,3 @@ async function publishCourseInternal(
     return { ok: false, message: actionMessageFromError(error), code: 500 };
   }
 }
-
-export const __testing = {
-  createCourseInternal,
-  updateCourseInternal,
-  publishCourseInternal,
-  defaultDeps,
-};
