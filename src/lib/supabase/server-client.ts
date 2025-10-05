@@ -1,26 +1,15 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/constants/env";
-import type { Database } from "./types";
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { env } from '@/constants/env';
+import type { Database } from './types';
 
-type WritableCookieStore = Awaited<ReturnType<typeof cookies>> & {
-  set?: (options: {
-    name: string;
-    value: string;
-    path?: string;
-    expires?: Date;
-    maxAge?: number;
-    httpOnly?: boolean;
-    sameSite?: "lax" | "strict" | "none";
-    secure?: boolean;
-  }) => void;
-};
-
-export const createSupabaseServerClient = async (): Promise<
-  SupabaseClient<Database>
-> => {
-  const cookieStore = (await cookies()) as WritableCookieStore;
+/**
+ * Server Component 및 Route Handler용 Supabase 클라이언트
+ * - cookies()를 사용한 세션 관리
+ * - Route Handler와 Server Component 모두에서 사용 가능
+ */
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
 
   return createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -31,13 +20,15 @@ export const createSupabaseServerClient = async (): Promise<
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            if (typeof cookieStore.set === "function") {
-              cookieStore.set({ name, value, ...options });
-            }
-          });
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Server Component에서 set이 실패할 수 있음
+          }
         },
       },
     }
   );
-};
+}

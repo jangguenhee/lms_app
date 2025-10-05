@@ -32,42 +32,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- RLS Helper Functions
--- =====================================================
-
--- 코스 소유 instructor 여부
-CREATE OR REPLACE FUNCTION public.is_course_instructor(cid UUID)
-RETURNS BOOLEAN
-LANGUAGE sql STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.courses c
-    WHERE c.id = cid AND c.instructor_id = auth.uid()
-  );
-$$;
-
--- 코스 수강 여부
-CREATE OR REPLACE FUNCTION public.is_enrolled(cid UUID)
-RETURNS BOOLEAN
-LANGUAGE sql STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.enrollments e
-    WHERE e.course_id = cid AND e.learner_id = auth.uid()
-  );
-$$;
-
--- 과제 소유 instructor 여부
-CREATE OR REPLACE FUNCTION public.is_assignment_instructor(aid UUID)
-RETURNS BOOLEAN
-LANGUAGE sql STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.assignments a
-    JOIN public.courses c ON c.id = a.course_id
-    WHERE a.id = aid AND c.instructor_id = auth.uid()
-  );
-$$;
-
--- =====================================================
 -- 1. Profiles Table
 -- =====================================================
 CREATE TABLE IF NOT EXISTS profiles (
@@ -442,6 +406,42 @@ CREATE POLICY "Instructors can update grades"
             AND c.instructor_id = auth.uid()
         )
     );
+
+-- =====================================================
+-- RLS Helper Functions (테이블 생성 후 정의)
+-- =====================================================
+
+-- 코스 소유 instructor 여부
+CREATE OR REPLACE FUNCTION public.is_course_instructor(cid UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.courses c
+    WHERE c.id = cid AND c.instructor_id = auth.uid()
+  );
+$$;
+
+-- 코스 수강 여부
+CREATE OR REPLACE FUNCTION public.is_enrolled(cid UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.enrollments e
+    WHERE e.course_id = cid AND e.learner_id = auth.uid()
+  );
+$$;
+
+-- 과제 소유 instructor 여부
+CREATE OR REPLACE FUNCTION public.is_assignment_instructor(aid UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    JOIN public.courses c ON c.id = a.course_id
+    WHERE a.id = aid AND c.instructor_id = auth.uid()
+  );
+$$;
 
 -- =====================================================
 -- Migration Complete

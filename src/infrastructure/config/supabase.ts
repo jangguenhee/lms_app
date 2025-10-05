@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/constants/env';
 import type { Database } from '@/lib/supabase/types';
 
@@ -10,7 +10,7 @@ import type { Database } from '@/lib/supabase/types';
  * 
  * @returns Supabase 클라이언트 인스턴스
  */
-export function createSupabaseClient(): ReturnType<typeof createClient<Database>> {
+export function createSupabaseClient(): SupabaseClient<Database> {
   return createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -28,9 +28,9 @@ export function createSupabaseClient(): ReturnType<typeof createClient<Database>
  * Infrastructure Layer의 Repository들이 공유할 수 있는
  * 단일 클라이언트 인스턴스를 제공합니다.
  */
-let supabaseClient: ReturnType<typeof createSupabaseClient> | null = null;
+let supabaseClient: SupabaseClient<Database> | null = null;
 
-export function getSupabaseClient(): ReturnType<typeof createSupabaseClient> {
+export function getSupabaseClient(): SupabaseClient<Database> {
   if (!supabaseClient) {
     supabaseClient = createSupabaseClient();
   }
@@ -43,4 +43,7 @@ export function getSupabaseClient(): ReturnType<typeof createSupabaseClient> {
 export function resetSupabaseClient(): void {
   supabaseClient = null;
 }
+
+// 공용 인스턴스 export (싱글톤)
+export const supabase: SupabaseClient<Database> = getSupabaseClient();
 
