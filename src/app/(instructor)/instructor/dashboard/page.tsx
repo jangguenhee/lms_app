@@ -96,10 +96,18 @@ function CourseDashboardItem({ course }: { course: CourseRow }) {
         >
           편집
         </Link>
+        <Link
+          href={`/instructor/courses/${course.id}/assignments/new`}
+          className={cn(
+            'inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm',
+            'hover:bg-accent hover:text-accent-foreground',
+          )}
+        >
+          과제 관리
+        </Link>
         {course.status === 'draft' ? (
           <PublishButton courseId={course.id} status={course.status} />
         ) : null}
-        <ButtonPlaceholder label="학습자 보기 (준비 중)" />
       </div>
       <p className="text-xs text-muted-foreground">생성일: {createdAt.toLocaleDateString()}</p>
     </div>
