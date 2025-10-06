@@ -62,13 +62,23 @@ export function SignupForm() {
         return;
       }
 
-      toast({
-        title: '회원가입 성공',
-        description: '온보딩 페이지로 이동합니다',
-      });
-
-      // 온보딩 페이지로 리다이렉트
-      router.push('/onboarding');
+      // Supabase 이메일 확인 필요 여부 체크
+      if (data.needsEmailConfirmation) {
+        toast({
+          title: '이메일 확인이 필요합니다',
+          description: `${values.email}로 발송된 확인 이메일을 확인해주세요.`,
+          duration: 10000,
+        });
+        // 로그인 페이지로 리다이렉트
+        router.push('/signin');
+      } else {
+        toast({
+          title: '회원가입 성공',
+          description: '온보딩 페이지로 이동합니다',
+        });
+        // 온보딩 페이지로 리다이렉트
+        router.push('/onboarding');
+      }
     } catch (error) {
       toast({
         variant: 'destructive',

@@ -8,7 +8,13 @@ export default function SignupPage() {
       <Card className="w-full max-w-[400px]">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl font-bold">회원가입</CardTitle>
-          <CardDescription>이메일과 비밀번호를 입력하면 계정이 생성됩니다.</CardDescription>
+          <CardDescription>
+            이메일과 비밀번호를 입력하면 계정이 생성됩니다.
+            <br />
+            <span className="text-xs text-muted-foreground">
+              가입 후 이메일 확인이 필요할 수 있습니다.
+            </span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <SignupForm />

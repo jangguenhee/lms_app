@@ -16,6 +16,7 @@ type SignupBody = z.infer<typeof signupSchema>;
 type SignupSuccess = {
   userId: string;
   onboarded: false;
+  needsEmailConfirmation?: boolean;
 };
 
 type SignupErrorCode =
@@ -103,7 +104,13 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    return NextResponse.json<SignupSuccess>({ userId, onboarded: false }, { status: 201 });
+    // 이메일 확인이 필요한지 체크 (Supabase의 identities 배열이 비어있으면 확인 필요)
+    const needsEmailConfirmation = !data.user?.identities || data.user.identities.length === 0;
+
+    return NextResponse.json<SignupSuccess>(
+      { userId, onboarded: false, needsEmailConfirmation },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json<ErrorPayload>(
       { error: { code: 'service_unavailable', message: '일시적인 서버 오류입니다. 잠시 후 다시 시도해주세요' } },
