@@ -25,6 +25,14 @@ export default function LoginPage({ params }: LoginPageProps) {
       const redirectedFrom = searchParams.get("redirectedFrom") ?? "/";
       router.replace(redirectedFrom);
     }
+
+    // Check for error messages from URL params
+    const urlError = searchParams.get("error");
+    const urlMessage = searchParams.get("message");
+
+    if (urlError && urlMessage) {
+      setErrorMessage(decodeURIComponent(urlMessage));
+    }
   }, [isAuthenticated, router, searchParams]);
 
   const handleChange = useCallback(
