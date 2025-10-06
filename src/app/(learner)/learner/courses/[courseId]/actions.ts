@@ -31,16 +31,17 @@ export async function enrollCourse(courseId: string): Promise<EnrollmentActionRe
       };
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
+    // 자기 자신의 강의인지 확인
+    const { data: course } = await supabase
+      .from('courses')
+      .select('instructor_id')
+      .eq('id', courseId)
       .maybeSingle();
 
-    if (profile?.role !== 'learner') {
+    if (course?.instructor_id === session.user.id) {
       return {
         ok: false,
-        message: createActionMessage('error', '수강 신청 불가', '학습자만 수강 신청할 수 있습니다.'),
+        message: createActionMessage('error', '수강 신청 불가', '자신의 강의는 수강 신청할 수 없습니다.'),
         code: 403,
       };
     }
