@@ -54,8 +54,23 @@ export default function LoginPage({ params }: LoginPageProps) {
 
         if (nextAction === "success") {
           await refresh();
-          const redirectedFrom = searchParams.get("redirectedFrom") ?? "/";
-          router.replace(redirectedFrom);
+
+          // 온보딩 여부 확인
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarded, role')
+            .eq('id', result.data.user?.id)
+            .maybeSingle();
+
+          if (!profile?.onboarded) {
+            router.replace('/onboarding');
+          } else {
+            // 역할에 따라 대시보드로 리다이렉트
+            const dashboardUrl = profile.role === 'instructor'
+              ? '/instructor/dashboard'
+              : '/learner/dashboard';
+            router.replace(dashboardUrl);
+          }
         } else {
           setErrorMessage(nextAction);
         }

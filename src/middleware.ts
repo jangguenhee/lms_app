@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/constants/env';
 import type { Database } from '@/lib/supabase/types';
 
-const PUBLIC_PATHS = ['/', '/signin', '/signup', '/onboarding', '/courses'] as const;
+const PUBLIC_PATHS = ['/', '/signin', '/signup', '/login', '/onboarding', '/courses'] as const;
 
 const LEARNER_PREFIX = '/learner';
 const INSTRUCTOR_PREFIX = '/instructor';
