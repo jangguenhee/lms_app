@@ -70,6 +70,7 @@ export async function POST(request: Request): Promise<Response> {
         data: {
           name, // raw_user_meta_data에 name 포함
         },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback`,
       },
     });
 
