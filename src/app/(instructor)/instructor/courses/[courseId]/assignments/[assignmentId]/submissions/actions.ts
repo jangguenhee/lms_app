@@ -116,12 +116,20 @@ export async function gradeSubmission(
         };
       }
     } else {
+      // 강사 이름 가져오기
+      const { data: instructor } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', session.user.id)
+        .single();
+
       // 새 grade 생성
-      const gradePayload: Omit<GradeInsert, 'id' | 'graded_at'> = {
+      const gradePayload: Omit<GradeInsert, 'id' | 'graded_at' | 'created_at' | 'updated_at'> = {
         submission_id: submissionId,
         score: parsed.data.score,
         feedback: parsed.data.feedback || null,
         graded_by: session.user.id,
+        graded_by_name: instructor?.name || 'Unknown',
       };
 
       const { error: gradeError } = await (supabase.from('grades') as any).insert([gradePayload]);

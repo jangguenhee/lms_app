@@ -62,21 +62,21 @@ export function SignupForm() {
         return;
       }
 
-      // Supabase 이메일 확인 필요 여부 체크
+      // 회원가입 성공 처리
       if (data.needsEmailConfirmation) {
+        // 이메일 확인이 필요한 경우
         toast({
-          title: '이메일 확인이 필요합니다',
+          title: '회원가입 성공',
           description: `${values.email}로 발송된 확인 이메일을 확인해주세요.`,
           duration: 10000,
         });
-        // 로그인 페이지로 리다이렉트
         router.push('/signin');
       } else {
+        // 이메일 확인이 불필요한 경우 (자동 확인 설정)
         toast({
           title: '회원가입 성공',
           description: '온보딩 페이지로 이동합니다',
         });
-        // 온보딩 페이지로 리다이렉트
         router.push('/onboarding');
       }
     } catch (error) {
