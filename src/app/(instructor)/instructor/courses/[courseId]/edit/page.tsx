@@ -2,20 +2,43 @@ import { notFound, redirect } from 'next/navigation';
 import { CourseForm } from '@/components/courses/CourseForm';
 import { PublishButton } from '@/components/courses/PublishButton';
 import { CourseStatusBadge } from '@/components/courses/CourseStatusBadge';
+import { AssignmentList } from '@/components/assignments/AssignmentList';
 import { HttpError, requireCourseOwnership } from '@/lib/auth/guards';
-import type { CourseRow } from '@/types/db';
+import type { CourseRow, AssignmentRow } from '@/types/db';
 
 type EditCoursePageProps = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ courseId: string }>;
 };
 
+async function loadAssignments(courseId: string): Promise<AssignmentRow[]> {
+  try {
+    const { supabase } = await requireCourseOwnership(courseId);
+
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .eq('course_id', courseId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[course edit] failed to load assignments', { error, courseId });
+      return [];
+    }
+
+    return data ?? [];
+  } catch (error) {
+    console.error('[course edit] unexpected error loading assignments', { error, courseId });
+    return [];
+  }
+}
+
 export default async function EditCoursePage({ params }: EditCoursePageProps) {
-  const { id } = await params;
+  const { courseId } = await params;
 
   let course: CourseRow;
 
   try {
-    const result = await requireCourseOwnership(id);
+    const result = await requireCourseOwnership(courseId);
     course = result.course;
   } catch (error) {
     if (error instanceof HttpError) {
@@ -29,6 +52,8 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
     }
     throw error;
   }
+
+  const assignments = await loadAssignments(courseId);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-12">
@@ -45,6 +70,8 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
       <div className="flex justify-end">
         <PublishButton courseId={course.id} status={course.status} />
       </div>
+
+      <AssignmentList courseId={course.id} assignments={assignments} />
     </div>
   );
 }

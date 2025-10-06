@@ -1,18 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache.js';
-import { nanoid } from 'nanoid';
 import type { PostgrestError } from '@supabase/supabase-js';
 import {
   createActionMessage,
   actionMessageFromError,
   actionMessageFromSuccess,
   type ActionMessage,
-} from '../../../../../lib/utils/toast';
-import { courseDraftSchema, coursePublishSchema } from '../../../../../lib/validations/course';
-import { requireCourseOwnership, requireInstructor, HttpError } from '../../../../../lib/auth/guards';
-import type { CourseDraftInput } from '../../../../../lib/validations/course';
-import type { CourseInsert, CourseUpdate } from '../../../../../types/db';
+} from '@/lib/utils/toast';
+import { courseDraftSchema, coursePublishSchema } from '@/lib/validations/course';
+import { requireCourseOwnership, requireInstructor, HttpError } from '@/lib/auth/guards';
+import type { CourseDraftInput } from '@/lib/validations/course';
+import type { CourseInsert, CourseUpdate } from '@/types/db';
 
 type FieldErrors = Partial<Record<'title' | 'description' | 'thumbnailUrl', string>>;
 
@@ -102,8 +101,7 @@ export async function createCourseInternal(
       };
     }
 
-    const payload: CourseInsert = {
-      id: nanoid(),
+    const payload: Omit<CourseInsert, 'id' | 'created_at' | 'updated_at'> = {
       instructor_id: user.id,
       title: parsed.data.title,
       description: parsed.data.description ?? null,

@@ -4,7 +4,7 @@ import Module from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CourseDraftInput } from '../src/lib/validations/course';
-import type { ActionDependencies } from '../src/app/(instructor)/instructor/courses/[id]/actions';
+import type { ActionDependencies } from '../src/app/(instructor)/instructor/courses/[courseId]/actions';
 import type { CourseRow } from '../src/types/db';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://example.supabase.co';
@@ -19,7 +19,7 @@ if (!process.env.NODE_PATH) {
 }
 
 const actionsModule = await import(
-  new URL('../src/app/(instructor)/instructor/courses/[id]/actions.ts', import.meta.url).href,
+  new URL('../src/app/(instructor)/instructor/courses/[courseId]/actions.ts', import.meta.url).href,
 );
 
 const { createCourseInternal, publishCourseInternal, updateCourseInternal } = actionsModule;

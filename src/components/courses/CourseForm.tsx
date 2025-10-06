@@ -23,7 +23,7 @@ import {
   createCourse,
   updateCourse,
   type CourseActionResult,
-} from '@/app/(instructor)/instructor/courses/[id]/actions';
+} from '@/app/(instructor)/instructor/courses/[courseId]/actions';
 import { toToastMessage } from '@/lib/utils/toast';
 import type { CourseRow } from '@/types/db';
 

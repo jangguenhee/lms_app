@@ -63,6 +63,36 @@ export async function requireInstructor() {
   return { supabase, user, profile } as const;
 }
 
+export async function requireLearner() {
+  const { supabase, user } = await requireAuth();
+
+  const profileResponse = await supabase
+    .from('profiles')
+    .select('id, role, onboarded')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileResponse.error) {
+    console.error('[auth] failed to fetch learner profile', {
+      error: profileResponse.error,
+      userId: user.id,
+    });
+    throw new HttpError(500, '프로필 정보를 불러오지 못했습니다.');
+  }
+
+  const profile = profileResponse.data as ProfileRow | null;
+
+  if (!profile) {
+    throw new HttpError(403, '접근 권한이 없습니다.');
+  }
+
+  if (profile.role !== 'learner') {
+    throw new HttpError(403, '학생 전용 페이지입니다.');
+  }
+
+  return { supabase, user, profile } as const;
+}
+
 export async function requireCourseOwnership(courseId: string) {
   const { supabase, user, profile } = await requireInstructor();
 

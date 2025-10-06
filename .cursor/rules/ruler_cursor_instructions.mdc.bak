@@ -1,0 +1,924 @@
+---
+alwaysApply: true
+---
+<!-- Source: .ruler/AGENTS.md -->
+
+# AGENTS.md
+
+## Base Development Guidelines
+
+### Project Overview
+
+**VMC_LMS** - Instructor-centric course marketplace platform
+
+**Architecture:** Layered Architecture (Presentation → Application → Domain → Infrastructure)
+
+**Key Principles:**
+- SOLID principles
+- Dependency Inversion (DIP)
+- Clean separation of concerns
+
+---
+
+## Must
+
+- **Layered Architecture 준수**: Presentation → Application → Domain → Infrastructure
+- **의존성 방향**: 바깥쪽 → 안쪽 (Infrastructure → Domain, not reverse)
+- **Domain Layer는 순수**: 외부 라이브러리 의존 금지 (date-fns, ts-pattern만 허용)
+- **항상 Interface 사용**: Repository, Service는 interface로 정의
+- **Use Case 중심**: 비즈니스 로직은 Use Case에서 조율
+- **Promise params**: page.tsx params는 Promise 사용
+- **한국어 응답**: 항상 한국어로 응답
+
+---
+
+## Tech Stack
+
+### Core
+- **Next.js 14** (App Router, Server Components)
+- **TypeScript** (strict mode)
+- **Hono** (API routes)
+
+### Data
+- **Supabase** (Auth, PostgreSQL, Storage)
+- **@tanstack/react-query** (Server state)
+
+### UI
+- **Tailwind CSS** + **shadcn/ui**
+- **react-hook-form** + **zod**
+- **lucide-react**
+
+### Domain Logic
+- **date-fns** (날짜 계산)
+- **ts-pattern** (패턴 매칭)
+- **neverthrow** (Result 타입)
+
+### Utilities
+- **es-toolkit** (lodash 대체)
+- **nanoid** (ID 생성)
+
+---
+
+## Directory Structure
+src/
+├── presentation/
+│   ├── web/
+│   │   ├── app/                      # Next.js pages
+│   │   │   ├── (public)/
+│   │   │   ├── (auth)/
+│   │   │   ├── (learner)/
+│   │   │   └── (instructor)/
+│   │   └── components/               # UI components only
+│   │       ├── ui/                   # shadcn/ui
+│   │       └── features/
+│   └── api/
+│       ├── routes/                   # Hono routes
+│       ├── dto/                      # Request/Response DTOs
+│       └── middleware/               # HTTP middleware
+│
+├── application/
+│   ├── use-cases/                    # Business workflows
+│   │   ├── course/
+│   │   ├── enrollment/
+│   │   ├── assignment/
+│   │   └── submission/
+│   ├── ports/                        # Interfaces (DIP)
+│   │   ├── repositories/
+│   │   └── services/
+│   └── services/                     # Application services
+│
+├── domain/
+│   ├── entities/                     # Domain entities
+│   ├── value-objects/                # Value objects
+│   ├── services/                     # Domain services
+│   ├── events/                       # Domain events
+│   └── exceptions/                   # Domain exceptions
+│
+├── infrastructure/
+│   ├── persistence/
+│   │   ├── supabase/
+│   │   ├── repositories/             # Repository implementations
+│   │   └── mappers/                  # DB ↔ Domain
+│   ├── external/
+│   │   ├── storage/
+│   │   └── auth/
+│   └── config/
+│
+└── shared/
+├── types/
+├── constants/
+└── utils/
+
+---
+
+## Layered Architecture Rules
+
+### 1. Presentation Layer
+
+**책임:** UI 렌더링, HTTP 요청 처리
+
+**허용 의존성:**
+- → Application Layer (Use Cases)
+- → Shared utilities
+
+**금지:**
+- ❌ Domain entities 직접 사용
+- ❌ Infrastructure 직접 접근 (DI Container 통해서만)
+
+**Components:**
+- Server Component 기본
+- `'use client'`는 필요시만 (hooks, events, browser APIs)
+
+**API Routes 예시:**
+```typescript
+// presentation/api/routes/submissions.routes.ts
+app.post('/submissions', async (c) => {
+  const dto = await c.req.json();
+  
+  // Use Case 호출
+  const result = await submitAssignmentUseCase.execute(dto);
+  
+  return result.match(
+    (submission) => c.json(submission, 200),
+    (error) => c.json({ error: error.message }, 400)
+  );
+});
+```
+
+### 2. Application Layer
+
+**책임:** Use Case 조율, 비즈니스 워크플로우
+
+**허용 의존성:**
+- → Domain Layer (Entities, Services)
+- → Ports (Interfaces only, not implementations)
+
+**금지:**
+- ❌ Infrastructure 구현체 직접 import
+- ❌ HTTP, DB 라이브러리 직접 사용
+
+**Use Case Pattern:**
+```typescript
+// application/use-cases/submission/submit-assignment.use-case.ts
+export class SubmitAssignmentUseCase {
+  constructor(
+    private submissionRepo: ISubmissionRepository,  // Interface
+    private assignmentRepo: IAssignmentRepository,
+    private enrollmentChecker: EnrollmentCheckerService
+  ) {}
+
+  async execute(input: SubmitInput): Promise<Result<Submission, Error>> {
+    // 1. Load domain entities
+    const assignment = await this.assignmentRepo.findById(input.assignmentId);
+    
+    // 2. Check business rules
+    const canSubmit = assignment.canAcceptSubmission(new Date());
+    if (!canSubmit) return err(new LateSubmissionNotAllowed());
+    
+    // 3. Create entity
+    const submission = Submission.create(input);
+    
+    // 4. Persist
+    return ok(await this.submissionRepo.save(submission));
+  }
+}
+```
+
+### 3. Domain Layer
+
+**책임:** 순수 비즈니스 로직
+
+**허용 의존성:**
+- → date-fns, ts-pattern만 (순수 유틸리티)
+
+**금지:**
+- ❌ 모든 Framework (Next.js, React, Hono 등)
+- ❌ 모든 Infrastructure (Supabase, DB 등)
+- ❌ Presentation 관련 모든 것
+
+**Entity Pattern:**
+```typescript
+// domain/entities/assignment.entity.ts
+export class Assignment {
+  constructor(
+    public readonly id: string,
+    public title: string,
+    public deadline: Deadline,  // Value Object
+    public allowLateSubmission: boolean,
+    public lateDeadline?: Deadline
+  ) {}
+
+  canAcceptSubmission(submittedAt: Date): boolean {
+    return LateSubmissionService.validate(
+      this.deadline,
+      this.allowLateSubmission,
+      this.lateDeadline,
+      submittedAt
+    );
+  }
+}
+```
+
+**Value Object Pattern:**
+```typescript
+// domain/value-objects/deadline.vo.ts
+export class Deadline {
+  private constructor(public readonly value: Date) {}
+
+  static create(date: Date): Deadline {
+    if (date < new Date()) throw new DomainException('Past deadline');
+    return new Deadline(date);
+  }
+
+  isPassed(now = new Date()): boolean {
+    return now > this.value;
+  }
+}
+```
+
+### 4. Infrastructure Layer
+
+**책임:** 외부 시스템 연동
+
+**허용 의존성:**
+- → Domain Layer (Entities, VOs)
+- → 모든 외부 라이브러리 (Supabase, etc.)
+
+**Repository Pattern:**
+```typescript
+// infrastructure/persistence/repositories/submission.repository.ts
+export class SupabaseSubmissionRepository implements ISubmissionRepository {
+  constructor(private supabase: SupabaseClient) {}
+
+  async save(submission: Submission): Promise<Submission> {
+    const row = SubmissionMapper.toDatabase(submission);
+    const { data } = await this.supabase.from('submissions').insert(row);
+    return SubmissionMapper.toDomain(data);
+  }
+}
+```
+
+**Mapper Pattern:**
+```typescript
+// infrastructure/persistence/mappers/submission.mapper.ts
+export class SubmissionMapper {
+  static toDomain(row: SubmissionRow): Submission {
+    return new Submission(
+      row.id,
+      row.assignment_id,
+      row.learner_id,
+      row.is_late
+    );
+  }
+
+  static toDatabase(entity: Submission): SubmissionRow {
+    return {
+      id: entity.id,
+      assignment_id: entity.assignmentId,
+      learner_id: entity.learnerId,
+      is_late: entity.isLate
+    };
+  }
+}
+```
+
+**Dependency Injection (Manual DI 추천):**
+```typescript
+// infrastructure/di/container.ts
+export class DIContainer {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
+  getSubmitAssignmentUseCase(): SubmitAssignmentUseCase {
+    return new SubmitAssignmentUseCase(
+      new SupabaseSubmissionRepository(this.supabase),
+      new SupabaseAssignmentRepository(this.supabase),
+      new EnrollmentCheckerService(this.getEnrollmentRepository())
+    );
+  }
+}
+```
+
+**사용 예시:**
+```typescript
+// presentation/api/routes/submissions.routes.ts
+const container = new DIContainer(supabase);
+const submitUseCase = container.getSubmitAssignmentUseCase();
+```
+
+---
+
+## Code Guidelines
+
+### SOLID Principles
+- Single Responsibility: 각 클래스는 하나의 책임만
+- Use Case = 하나의 워크플로우
+- Repository = 하나의 Entity 저장/조회
+
+- Dependency Inversion: 상위 레이어는 하위 레이어의 interface에만 의존
+- Interface Segregation: 큰 interface보다 작은 interface 여러 개
+
+### TypeScript
+- Strict mode 사용
+- 모든 함수에 return type 명시
+- any 금지, unknown 사용
+- Interface > Type (객체 형태)
+
+### Naming
+- Entity: PascalCase (Course, Assignment)
+- Value Object: PascalCase + .vo.ts
+- Use Case: PascalCase + .use-case.ts
+- Interface: I prefix (IRepository)
+
+### Error Handling (neverthrow)
+```typescript
+import { Result, ok, err } from 'neverthrow';
+
+async function execute(): Promise<Result<Data, Error>> {
+  if (invalid) return err(new ValidationError());
+  return ok(data);
+}
+
+// 사용
+result.match(
+  (data) => handleSuccess(data),
+  (error) => handleError(error)
+);
+```
+
+### Testing
+- Unit Tests (Domain/Application)
+- Integration Tests (Use Cases)
+
+예시:
+```typescript
+// domain/services/late-submission.service.test.ts
+describe('LateSubmissionService', () => {
+  it('should allow submission before deadline', () => {
+    const result = LateSubmissionService.validate(
+      Deadline.create(tomorrow),
+      false,
+      undefined,
+      today
+    );
+    expect(result.allowed).toBe(true);
+    expect(result.isLate).toBe(false);
+  });
+});
+```
+
+---
+
+## Supabase
+
+### Migrations
+- supabase/migrations/ 폴더에 SQL 파일
+- 파일명: YYYYMMDDHHMMSS_description.sql
+- 로컬 실행 금지, 클라우드에서만
+
+### RLS Policies
+- 모든 테이블에 RLS 활성화
+- Infrastructure Layer의 최종 방어선
+
+---
+
+## Package Manager
+- npm 사용
+- package-lock.json 커밋
+
+---
+
+## Shadcn UI
+- 새 컴포넌트 추가 시:
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add card
+```
+
+---
+
+## Korean Text
+- UTF-8 인코딩 확인
+- 항상 한국어로 응답
+
+
+
+<!-- Source: .ruler/instructions.md -->
+
+# Instructions (Ruler Entry)
+
+본 프로젝트는 Layered Architecture (Presentation → Application → Domain → Infrastructure)를 따른다.
+모든 규칙은 한국어 기준으로 해석/출력한다.
+
+## 아키텍처
+- ✅ 의존성 방향: 바깥 → 안쪽 (Infrastructure → Domain, 역참조 금지)
+- ✅ Use Case 중심 (Application에서 워크플로우 조율)
+- ❌ Domain에서는 외부 프레임워크/라이브러리 금지 (예외: date-fns, ts-pattern)
+
+## 코드 규칙
+- ✅ 모든 Repository/Service는 Interface 기반(DIP)
+- ✅ TypeScript strict, 모든 함수 `return type` 명시
+- ❌ `any` 금지 (`unknown` 허용)
+- ✅ 네이밍: Entity(PascalCase), VO(`*.vo.ts`), UseCase(`*.use-case.ts`), Interface(`I*`)
+
+## Presentation
+- ✅ Application(Use Case)와 Shared utils만 의존
+- ❌ Infrastructure 직접 접근 금지 (DI 통해서만)
+- ✅ Server Component 기본, `'use client'`는 필요시만
+- ✅ `page.tsx`의 `params`는 Promise 사용
+
+## Domain
+- ✅ 순수 비즈니스 로직만 포함
+- ❌ Next.js/React/Hono/Supabase 의존 금지
+
+## Infrastructure
+- ✅ 외부 연동(Supabase 등), Mapper로 DB↔Domain 변환
+- ✅ 모든 테이블 RLS 활성화, 마이그레이션은 `supabase/migrations/`에서만
+
+## 테스트/품질
+- ✅ Domain/Application 단위 테스트, Use Case 통합 테스트
+- ✅ `neverthrow`의 Result 타입 사용 및 `match` 분기
+
+## 패키지/도구
+- ✅ npm 사용 및 `package-lock.json` 커밋
+- ✅ shadcn 컴포넌트는 `npx shadcn@latest add <name>`
+
+## 포함 문서
+- 본 파일은 진입점이며, 세부 규칙은 `ruler.toml`의 include로 읽는다:
+  - `AGENTS.md` (기본 가이드)
+  - `auth.md` (인증/온보딩)
+  - `database.md` (DB/RLS)
+  - `ui-ux.md` (UI/접근성)
+
+
+
+<!-- Source: .ruler/PRD.md -->
+
+# VMC_LMS - Product Requirements Document
+
+## 1. 제품 개요
+
+강사가 코스를 개설·운영하고, 학습자가 수강·과제 제출·피드백 수령까지 할 수 있는 경량 LMS 형태의 웹 앱.
+
+**핵심 목표:**
+1. 역할 기반 플로우의 정확한 가드 (Instructor/Learner)
+2. 상태 기반 비즈니스 룰 구현 (마감/지각/재제출)
+3. 문서 주도(Usecase) 개발 프로세스 실전 적용
+4. 1일 내 전체 플로우 완성
+
+**인증:** Supabase Auth 기반
+
+---
+
+## 2. Stakeholders
+
+**Learner (학습자)**
+- 코스 탐색/수강신청
+- 과제 제출 (텍스트/파일)
+- 점수/피드백 확인
+
+**Instructor (강사)**
+- 코스/과제 개설·운영
+- 제출물 채점/피드백
+- 재제출 관리
+
+---
+
+## 3. 포함 페이지
+
+### Public
+1. **홈/카탈로그**
+   - 코스 리스트
+   - 검색/필터 (카테고리, 난이도)
+   - 정렬 (최신/인기)
+
+2. **코스 상세**
+   - 소개/커리큘럼
+   - 강사 정보
+   - 수강생 수/평균 평점
+   - 수강신청/취소 버튼 (권한·상태 가드)
+
+### Auth
+3. **회원가입/로그인**
+   - 이메일 기반 인증
+
+4. **온보딩**
+   - 역할 선택 (Instructor/Learner)
+   - 최소 프로필 (이름)
+
+### Learner Pages
+5. **Learner 대시보드**
+   - 내 코스 목록
+   - 진행률
+   - 마감 임박 과제
+   - 최근 피드백
+
+6. **Assignment 상세 (학습자)**
+   - 요구사항/마감일
+   - 점수 비중
+   - 지각 정책 표시
+   - 제출/재제출 UI
+   - 상태 표시 (제출됨/지각/채점완료/재제출요청)
+
+7. **성적/피드백 페이지**
+   - 과제별 점수
+   - 강사 피드백
+   - 코스별 성적 요약
+
+### Instructor Pages
+8. **Instructor 대시보드**
+   - 내 코스 목록
+   - 채점 대기 수
+   - 최근 제출물
+
+9. **코스 관리**
+   - 생성/수정
+   - 상태 전환 (draft/published/archived)
+
+10. **과제 관리**
+    - 생성/수정
+    - 게시 상태 관리 (draft/published/closed)
+    - 제출물 테이블 (필터: 미채점/지각/재제출요청)
+    - 채점/피드백 작성
+    - 재제출 요청
+
+---
+
+## 4. Information Architecture
+
+/ (Home - 카탈로그)
+├─ /auth
+│  ├─ /signin
+│  └─ /signup
+├─ /onboarding (역할 선택)
+├─ /courses
+│  ├─ /[courseId]
+│  │  ├─ /about
+│  │  └─ /enroll
+│  └─ /my (Learner 전용)
+│     └─ /[courseId]
+│        ├─ /assignments
+│        │  └─ /[assignmentId]
+│        │     ├─ /submit
+│        │     └─ /feedback
+│        └─ /grades
+└─ /instructor
+├─ /dashboard
+├─ /courses
+│  ├─ /new
+│  └─ /[courseId]/edit
+└─ /assignments
+├─ /new
+└─ /[assignmentId]/submissions
+
+---
+
+## 5. 사용자 여정
+
+### 5.1 Learner Journey
+
+1. **회원가입/로그인**
+   - 이메일 인증
+   - 역할 선택: Learner
+   - 프로필 완성
+
+2. **코스 탐색**
+   - 코스 카탈로그 검색/필터
+   - 코스 상세 확인
+   - 수강신청
+
+3. **학습 & 과제**
+   - 대시보드에서 마감 임박 과제 확인
+   - 과제 상세 페이지 진입
+   - 제출 (텍스트/파일)
+   - 상태 변화 (제출됨/지각)
+
+4. **성적 확인**
+   - 성적/피드백 페이지
+   - 재제출 요청 확인
+   - 재제출 (필요 시)
+
+### 5.2 Instructor Journey
+
+1. **회원가입/로그인**
+   - 이메일 인증
+   - 역할 선택: Instructor
+   - 프로필 완성
+
+2. **코스 개설**
+   - 코스 생성 (draft)
+   - 정보 입력 (제목/설명/썸네일)
+   - Published 전환
+
+3. **과제 운영**
+   - 과제 생성 (draft)
+   - 마감일/지각 정책 설정
+   - Published (게시)
+   - 제출물 수집
+
+4. **채점 & 피드백**
+   - 제출물 검토
+   - 점수 입력
+   - 피드백 작성
+   - 재제출 요청 (필요 시)
+
+5. **과제 마감**
+   - Closed 전환
+   - 성적 정리
+
+---
+
+## 6. 상태 전환 규칙
+
+### 코스 상태
+
+draft → published → archived
+
+**과제:**
+draft → published → closed
+
+**제출물:**
+미제출 → 제출됨 → 채점완료
+↓
+지각 제출
+↓
+재제출 요청됨 → 재제출됨
+
+
+---
+
+## 7. 비즈니스 룰
+
+### 7.1 역할 기반 접근 제어
+
+**Instructor 전용:**
+- 코스 생성/수정/삭제
+- 과제 생성/수정/게시
+- 제출물 조회/채점
+- 피드백 작성/재제출 요청
+
+**Learner 전용:**
+- 수강 신청/취소
+- 과제 제출/재제출
+- 성적 조회
+
+**가드 규칙:**
+- Instructor는 Learner 페이지 접근 불가 (리다이렉트)
+- Learner는 Instructor 페이지 접근 불가 (리다이렉트)
+- 미인증 사용자는 로그인 페이지로 리다이렉트
+
+### 7.2 수강 등록 기반 접근 제어
+
+**규칙:**
+- 등록한 코스만 과제 제출 가능
+- 등록하지 않은 코스의 과제는 조회만 가능 (제출 버튼 비활성화)
+- 수강 취소 시 제출했던 과제도 접근 불가
+
+**체크 로직:**
+```typescript
+const isEnrolled = await checkEnrollment(userId, courseId);
+if (!isEnrolled && action === 'submit') {
+  return error('수강 신청이 필요합니다');
+}
+```
+
+### 7.3 지각 제출 로직
+**규칙:**
+```typescript
+function canSubmit(assignment, submittedAt) {
+  const { due_date, allow_late_submission, late_submission_deadline } = assignment;
+  
+  // 1. 정시 제출
+  if (submittedAt <= due_date) {
+    return { allowed: true, is_late: false };
+  }
+  
+  // 2. 지각 제출 허용 여부 체크
+  if (!allow_late_submission) {
+    return { allowed: false, reason: '마감 후 제출 불가' };
+  }
+  
+  // 3. 지각 마감일 체크
+  if (submittedAt <= late_submission_deadline) {
+    return { allowed: true, is_late: true };
+  }
+  
+  // 4. 지각 마감일 이후
+  return { allowed: false, reason: '지각 마감일 초과' };
+}
+```
+**표시:**
+
+- 정시 제출: "제출 완료"
+- 지각 제출: "제출 완료 (지각)" + 배지
+- 제출 불가: "마감됨" + 사유
+
+### 7.4 재제출 규칙
+**조건:**
+
+- Instructor가 "재제출 요청" 상태로 변경한 경우에만
+- 재제출 시 이전 제출물 보관 (버전 관리)
+- 재제출도 지각 제출 로직 적용
+
+**상태 변화:**
+- 채점완료 → (강사) 재제출 요청 → 재제출 요청됨
+- 재제출 요청됨 → (학생) 재제출 → 재제출됨 → 채점 대기
+
+## 8. 데이터베이스 스키마
+**profiles**
+```sql
+id            UUID PRIMARY KEY
+email         TEXT UNIQUE NOT NULL
+name          TEXT NOT NULL
+role          TEXT CHECK (role IN ('instructor', 'learner'))
+onboarded     BOOLEAN DEFAULT FALSE
+created_at    TIMESTAMPTZ DEFAULT NOW()
+```
+**courses**
+```sql
+id            UUID PRIMARY KEY
+instructor_id UUID REFERENCES profiles(id)
+title         TEXT NOT NULL
+description   TEXT
+thumbnail_url TEXT
+status        TEXT CHECK (status IN ('draft', 'published', 'archived'))
+created_at    TIMESTAMPTZ DEFAULT NOW()
+```
+**enrollments**
+```sql
+id            UUID PRIMARY KEY
+course_id     UUID REFERENCES courses(id)
+learner_id    UUID REFERENCES profiles(id)
+enrolled_at   TIMESTAMPTZ DEFAULT NOW()
+UNIQUE(course_id, learner_id)
+```
+**assignments**
+```sql 
+id                        UUID PRIMARY KEY
+course_id                 UUID REFERENCES courses(id)
+title                     TEXT NOT NULL
+description               TEXT
+due_date                  TIMESTAMPTZ NOT NULL
+allow_late_submission     BOOLEAN DEFAULT FALSE
+late_submission_deadline  TIMESTAMPTZ
+status                    TEXT CHECK (status IN ('draft', 'published', 'closed'))
+created_at                TIMESTAMPTZ DEFAULT NOW()
+```
+**submissions**
+```sql
+id              UUID PRIMARY KEY
+assignment_id   UUID REFERENCES assignments(id)
+learner_id      UUID REFERENCES profiles(id)
+content         TEXT
+file_url        TEXT
+submitted_at    TIMESTAMPTZ DEFAULT NOW()
+is_late         BOOLEAN DEFAULT FALSE
+status          TEXT CHECK (status IN ('submitted', 'graded', 'resubmit_requested'))
+UNIQUE(assignment_id, learner_id)
+```
+**grades**
+```sql
+id              UUID PRIMARY KEY
+submission_id   UUID REFERENCES submissions(id) UNIQUE
+score           NUMERIC
+feedback        TEXT
+graded_at       TIMESTAMPTZ DEFAULT NOW()
+graded_by       UUID REFERENCES profiles(id)
+```
+
+## 9. 성공 지표
+**기능 완성도**
+
+ - 모든 페이지 에러 없이 로딩
+ - Learner Journey 완주 (회원가입 → 수강 → 제출 → 성적)
+ - Instructor Journey 완주 (회원가입 → 코스 생성 → 채점)
+ - 지각 제출 로직 검증 (정시/지각/불가 케이스)
+ - 재제출 플로우 검증
+
+**권한 제어**
+
+ - 역할별 페이지 접근 제어 동작
+ - 수강 여부 기반 제출 제어 동작
+ - RLS 정책 적용 확인
+
+**배포**
+
+ - Vercel 배포 성공
+ - 데모 계정 2개 동작 (Instructor 1,2, Learner 1,2)
+ - 공개 URL 접속 가능
+
+## 10. 제약사항
+**기술적 제약**
+- 프레임워크: Next.js 14 App Router
+- 데이터베이스: Supabase PostgreSQL
+- 스토리지: Supabase Storage
+- 배포: Vercel
+- 인증: Supabase Auth
+
+**비즈니스 제약**
+
+- 무료 티어: Supabase Free + Vercel Hobby
+- 초기 사용자: 데모용 (10명 미만)
+- 콘텐츠: 텍스트 + 파일만 (비디오 제외)
+- 결제: 없음 (모든 코스 무료)
+
+**범위 제약 (MVP 제외)**
+
+- 커리큘럼 빌더 (Sections/Lessons)
+- 비디오 콘텐츠
+- 결제 시스템
+- 이메일 알림
+- 리뷰/평점
+- 수료증
+
+
+
+<!-- Source: .ruler/ui-ux.md -->
+
+You are a senior product designer and UX architect.
+
+## 🎯 Goal
+Generate a full `UXUI.md` file for **VMC_LMS (Visual Media Creator LMS)**, aligned with the previously implemented database schema and core user flow.
+
+The document should serve as a **design specification** bridging UX → UI → Frontend.
+
+---
+
+## 🧩 1. Context
+- System: VMC_LMS
+- Core user types: `instructor`, `learner`
+- Tech stack: Next.js + Supabase + Tailwind + Shadcn/UI
+- Database spec: Profiles, Courses, Enrollments, Assignments, Submissions, Grades
+- Flow coverage: Sign-up → Onboarding → Course → Assignment → Submission → Grading
+
+---
+
+## 🧭 2. Deliverables
+Produce a **single structured markdown file** titled `UXUI.md`, including:
+
+### Section A: UX Architecture
+1. **User Personas** (instructor, learner)
+2. **Primary Journeys**
+   - Instructor: Create → Publish → Manage → Grade
+   - Learner: Browse → Enroll → Submit → View Feedback
+3. **Information Hierarchy**
+   - Key screens, primary vs secondary actions
+   - State-driven transitions (`draft → published`, `submitted → graded`)
+4. **Accessibility & Responsiveness**
+   - Mobile-first flow
+   - Keyboard and screen-reader compliance notes
+
+### Section B: UI Component Map
+- Each screen described as:
+  ```
+  ## Page: /courses/[id]/assignments/[id]
+  **Purpose:** Submit assignment  
+  **Components:** [AssignmentHeader, SubmissionForm, FileUpload, FeedbackBox]  
+  **States:** { empty, submitted, resubmit_requested, graded }
+  **Interactions:**
+  - Submit triggers POST /submissions
+  - Feedback auto-refresh on grading
+  ```
+- Use concise but consistent component naming (PascalCase)
+- Mark Shadcn components with 💠 emoji
+
+### Section C: Visual System
+- Typography scale (Heading / Body / Caption)
+- Color palette (Neutral / Primary / Accent)
+- Iconography convention (Lucide icons mapping)
+- Motion: Framer Motion usage examples (transitions, hover effects)
+
+### Section D: UX Rationale
+- Justify main layout decisions (dashboard structure, button placements)
+- Trade-offs (simplicity vs flexibility)
+- Future extensibility notes (Phase 2: Notifications, Analytics, History)
+
+---
+
+## 🧠 3. Output Requirements
+- Format strictly in valid **Markdown**
+- Use **code fences** for component pseudo-structure and routes
+- Maintain **consistent heading hierarchy** (## / ### / ####)
+- Avoid Figma markup or image placeholders
+- Keep the tone concise but professional
+
+---
+
+## 🪄 Example Output Style
+
+````markdown
+# UXUI.md - VMC_LMS
+
+## 1. UX Architecture
+### Persona: Instructor
+- Goal: Publish creative media courses
+- Pain points: managing submissions, feedback loops
+
+### User Flow: Course Creation
+1. Dashboard → “New Course”
+2. Fill course info → Save as Draft
+3. Publish → Triggers visibility for learners
+...

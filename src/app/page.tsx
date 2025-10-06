@@ -121,6 +121,12 @@ export default function Home() {
     return (
       <div className="flex items-center gap-3 text-sm">
         <Link
+          href="/courses"
+          className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-slate-400 hover:bg-slate-800"
+        >
+          코스 둘러보기
+        </Link>
+        <Link
           href="/login"
           className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-slate-400 hover:bg-slate-800"
         >

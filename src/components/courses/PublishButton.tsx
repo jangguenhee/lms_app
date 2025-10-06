@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { publishCourse } from '@/app/(instructor)/instructor/courses/[id]/actions';
+import { publishCourse } from '@/app/(instructor)/instructor/courses/[courseId]/actions';
 import { useToast } from '@/hooks/use-toast';
 import { toToastMessage } from '@/lib/utils/toast';
 
